@@ -1,0 +1,79 @@
+---
+title: "Regression Models Course Project"
+author: "George Liu"
+date: "September 24, 2015"
+output: pdf_document
+---
+
+#Executive Summary
+
+This report is part of the JHU Coursera Regression Models course project. In this project, regression and exploratory data analysis are done on the "mtcars"" data set to answer two questions:
+
+1. "Is an automatic or manual transmission better for MPG"
+2. "Quantify the MPG difference between automatic and manual transmissions"
+
+Based on the analysis, automatic transmission provides a better mpg, on average, it's 1.8 mpg.
+
+
+#Exploratory Data Analysis and Hypothesis Testing
+
+We start by loading required packages and make the categorical variables factors:
+
+```{r, error=FALSE, message=FALSE, warning=FALSE}
+library(datasets); library(car); library(dplyr); library(caret); library(ggplot2); data("mtcars")
+cars <- mtcars 
+cars$cyl <- factor(cars$cyl)
+cars$vs <- factor(cars$vs)
+cars$am <- factor(cars$am, labels = c("automatic", "manual"))
+cars$gear <- factor(cars$gear)
+cars$carb <- factor(cars$carb)
+```
+
+Now we do some exploratory data analysis. First, let's look at the correlation among variables. This is important as highly correlated predictors will lead to multicollinearity in regression, which will affect the accuracy of coefficients. (See appendix)
+```{r}
+fit.all <- lm(mpg ~ ., data = cars)
+vif(fit.all)
+```
+
+Second, we do some plotting here to explore the relationship between transmission type and mpg:
+```{r}
+g <- ggplot(cars, aes(x = am, y = mpg, color = am))
+g <- g + geom_boxplot(); g
+```
+Clearly, we see a difference in mpg between auto and manual transmissions. Below is a t-test for some inference:
+```{r}
+t.test(cars$mpg[mtcars$am == 0], cars$mpg[mtcars$am == 1])
+```
+This tells us that the difference is statistically significant, and with 95% confidence, it's between -11.3 and -3.2, which is average auto mpg minus average manual mpg.
+
+#Modeling Building, Selection and Diagnotics
+
+We now fit several models to quantify the difference using linear regression:
+```{r}
+fit.am <- lm(mpg ~ am, data = cars)
+fit.all <- lm(mpg ~ ., data = cars)
+fit.step <- step(fit.all, direction = "both", trace = 0)
+anova(fit.am, fit.step, fit.all)
+```
+
+Here, it indicates the step method generated model is significantly different than the single variable model. However, using my automotive knowledge, I don't see the need to include the hp predictor, since like all the other predictors removed by the step method, hp is a result of the number of cylinders, not a cause. Therefore, I now construct my own model that only links the result mpg with the cause, and rules out any correlated variables that're equivalent to the cause.
+```{r}
+fit.my <- lm(mpg ~ am + cyl + wt + carb, data = cars)
+anova(fit.my, fit.step)
+```
+
+However, the adjusted R-Squared is smaller, so we'll keep the step method generated model. Below, a plot is shown to examine the conditions of the fit are met:
+```{r}
+par(mfrow = c(2, 2))
+plot(fit.step); summary(fit.step)
+```
+
+#Conclusion
+
+Based on the regression analysis, we can see that on average, manual transmission has a higher mpg than automatic which is about 1.8. Number of cylinders also have a strong impact on mpg, while hp only marginally influences mpg.  
+
+#Appendix
+```{r, echo=FALSE}
+pairs(cars, panel = panel.smooth)
+```
+
